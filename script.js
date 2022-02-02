@@ -151,7 +151,7 @@ function init() {
         const element = document.createElement( 'div' );
         element.className = 'element';
         element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
-        element.setAttribute("onclick", "window.open('https://google.com.au/');");
+        //element.setAttribute("onclick", "window.open('https://google.com.au/');");
 
         const number = document.createElement( 'div' );
         number.className = 'number';
@@ -322,7 +322,9 @@ function init() {
 
     } );
 
-    transform( targets.starfield, 2000 );
+    transform( targets.starfield, 2000, () =>{
+        buttonConnect.style = "";
+    });
 
     //
 
@@ -330,7 +332,7 @@ function init() {
 
 }
 
-function transform( targets, duration ) {
+function transform( targets, duration, callback) {
 
     TWEEN.removeAll();
 
@@ -351,11 +353,14 @@ function transform( targets, duration ) {
 
     }
 
-    new TWEEN.Tween( this )
+    let tween = new TWEEN.Tween( this )
         .to( {}, duration * 2 )
         .onUpdate( render )
-        .start();
 
+    if (callback)
+        tween.onComplete(callback);
+
+    tween.start();
 }
 
 function onWindowResize() {
