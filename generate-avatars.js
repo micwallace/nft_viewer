@@ -1,9 +1,20 @@
 
-import * as THREE from 'three';
+const Avatar = require('avatar-builder').default;
+const {createCanvas} = require('canvas');
+const fs = require('fs');
 
-import { TWEEN } from './node_modules/three/examples/jsm/libs/tween.module.min.js';
-import { TrackballControls } from './node_modules/three/examples/jsm/controls/TrackballControls.js';
-import { CSS3DRenderer, CSS3DObject } from './node_modules/three/examples/jsm/renderers/CSS3DRenderer.js';
+const dir = "./assets/ph-images";
+
+if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, {recursive: true});
+}
+
+const avatar = Avatar.builder(
+    Avatar.Image.margin(Avatar.Image.roundedRectMask(Avatar.Image.compose(
+        Avatar.Image.randomFillStyle(),
+        Avatar.Image.shadow(Avatar.Image.margin(Avatar.Image.cat(), 8), {blur: 5, offsetX: 2.5, offsetY: -2.5,color:'rgba(0,0,0,0.75)'})
+    ), 32), 8),
+    128, 128);
 
 let table = [
     {"title":"H","desc":"Hydrogen","num":"1.00794","x":1,"y":1},
@@ -126,261 +137,20 @@ let table = [
     {"title":"Og","desc":"Oganesson","num":"(294)","x":18,"y":7}
 ];
 
-let camera, scene, renderer;
-let controls;
+function generateAvatars(table, index){
 
-const objects = [];
-const targets = { table: [], sphere: [], helix: [], grid: [], starfield: [] };
+    avatar.create(table[index].desc).then(buffer => {
 
-init();
-animate();
+        console.log("Generating cat " + (index+1));
 
-function init() {
+        fs.writeFileSync(dir + '/cat-' + (index+1) + '.png', buffer);
 
-    camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-    camera.position.z = 3000;
+        index++;
 
-    scene = new THREE.Scene();
-
-    // table
-
-    for ( let i = 0; i < table.length; i ++ ) {
-
-        let item = table[i];
-
-        const element = document.createElement( 'div' );
-        element.className = 'element';
-        element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
-        element.setAttribute("onclick", "window.open('https://google.com.au/');");
-
-        const number = document.createElement( 'div' );
-        number.className = 'number';
-        number.textContent = i + 1;
-        element.appendChild( number );
-
-        const symbol = document.createElement( 'div' );
-        symbol.className = 'symbol';
-        symbol.textContent = item.title;
-        element.appendChild( symbol );
-
-        const details = document.createElement( 'div' );
-        details.className = 'details';
-        details.innerHTML = item.desc + '<br>' + item.num;
-        element.appendChild( details );
-
-        const objectCSS = new CSS3DObject( element );
-        objectCSS.position.x = Math.random() * 4000 - 2000;
-        objectCSS.position.y = Math.random() * 4000 - 2000;
-        objectCSS.position.z = Math.random() * 4000 - 2000;
-
-        if (!item.imageUrl){
-            item.imageUrl = "assets/ph-images/cat-" + (i + 1) + ".png";
-        }
-
-        const img = document.createElement( 'img' );
-        img.className = "image";
-        img.setAttribute("src", item.imageUrl);
-        element.appendChild(img);
-
-        scene.add( objectCSS );
-
-        objects.push( objectCSS );
-
-        //
-
-        const object = new THREE.Object3D();
-        object.position.x = ( item.x * 140 ) - 1330;
-        object.position.y = - ( item.y * 180 ) + 990;
-
-        targets.table.push( object );
-
-    }
-
-    // sphere
-
-    const vector = new THREE.Vector3();
-
-    for ( let i = 0, l = objects.length; i < l; i ++ ) {
-
-        const phi = Math.acos( - 1 + ( 2 * i ) / l );
-        const theta = Math.sqrt( l * Math.PI ) * phi;
-
-        const object = new THREE.Object3D();
-
-        object.position.setFromSphericalCoords( 800, phi, theta );
-
-        vector.copy( object.position ).multiplyScalar( 2 );
-
-        object.lookAt( vector );
-
-        targets.sphere.push( object );
-
-    }
-
-    // helix
-
-    for ( let i = 0, l = objects.length; i < l; i ++ ) {
-
-        const theta = i * 0.175 + Math.PI;
-        const y = - ( i * 8 ) + 450;
-
-        const object = new THREE.Object3D();
-
-        object.position.setFromCylindricalCoords( 900, theta, y );
-
-        vector.x = object.position.x * 2;
-        vector.y = object.position.y;
-        vector.z = object.position.z * 2;
-
-        object.lookAt( vector );
-
-        targets.helix.push( object );
-
-    }
-
-    // grid
-
-    for ( let i = 0; i < objects.length; i ++ ) {
-
-        const object = new THREE.Object3D();
-
-        object.position.x = ( ( i % 5 ) * 400 ) - 800;
-        object.position.y = ( - ( Math.floor( i / 5 ) % 5 ) * 400 ) + 800;
-        object.position.z = ( Math.floor( i / 25 ) ) * 1000 - 2000;
-
-        targets.grid.push( object );
-
-    }
-
-    // starfield
-
-    for (let i = 0; i < objects.length; i++){
-
-        const object = new THREE.Object3D();
-
-        object.position.x = Math.floor(Math.random() * 4000) - 2000;
-        object.position.y = Math.floor(Math.random() * 4000) - 2000;
-        object.position.z = randomInteger(-3000, 3000);
-
-        targets.starfield.push(object);
-    }
-
-    function randomInteger(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
-
-    renderer = new CSS3DRenderer();
-    renderer.setSize( window.innerWidth, window.innerHeight );
-    document.getElementById( 'container' ).appendChild( renderer.domElement );
-
-    //
-
-    controls = new TrackballControls( camera, renderer.domElement );
-    controls.minDistance = 500;
-    controls.maxDistance = 6000;
-    controls.addEventListener( 'change', render );
-
-    const buttonTable = document.getElementById( 'table' );
-    buttonTable.addEventListener( 'click', function () {
-
-        transform( targets.table, 2000 );
-
-    } );
-
-    const buttonSphere = document.getElementById( 'sphere' );
-    buttonSphere.addEventListener( 'click', function () {
-
-        transform( targets.sphere, 2000 );
-
-    } );
-
-    const buttonHelix = document.getElementById( 'helix' );
-    buttonHelix.addEventListener( 'click', function () {
-
-        transform( targets.helix, 2000 );
-
-    } );
-
-    const buttonGrid = document.getElementById( 'grid' );
-    buttonGrid.addEventListener( 'click', function () {
-
-        transform( targets.grid, 2000 );
-
-    } );
-
-    const buttonStarfield = document.getElementById( 'starfield' );
-    buttonStarfield.addEventListener( 'click', function () {
-
-        transform( targets.starfield, 2000 );
-
-    } );
-
-    const buttonConnect = document.getElementById( 'connect-btn' );
-    buttonConnect.addEventListener( 'click', function () {
-
-        transform( targets.sphere, 2000 );
-
-    } );
-
-    transform( targets.starfield, 2000 );
-
-    //
-
-    window.addEventListener( 'resize', onWindowResize );
-
+        if (index < table.length)
+            return generateAvatars(table, index);
+    });
 }
 
-function transform( targets, duration ) {
 
-    TWEEN.removeAll();
-
-    for ( let i = 0; i < objects.length; i ++ ) {
-
-        const object = objects[ i ];
-        const target = targets[ i ];
-
-        new TWEEN.Tween( object.position )
-            .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
-            .easing( TWEEN.Easing.Exponential.InOut )
-            .start();
-
-        new TWEEN.Tween( object.rotation )
-            .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
-            .easing( TWEEN.Easing.Exponential.InOut )
-            .start();
-
-    }
-
-    new TWEEN.Tween( this )
-        .to( {}, duration * 2 )
-        .onUpdate( render )
-        .start();
-
-}
-
-function onWindowResize() {
-
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize( window.innerWidth, window.innerHeight );
-
-    render();
-
-}
-
-function animate() {
-
-    requestAnimationFrame( animate );
-
-    TWEEN.update();
-
-    controls.update();
-
-}
-
-function render() {
-
-    renderer.render( scene, camera );
-
-}
+generateAvatars(table, 0);
