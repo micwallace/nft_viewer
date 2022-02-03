@@ -106,6 +106,13 @@ button:active {
   font-size: 20px;
 }
 
+#connect-dtl {
+    color: #fff;
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
 .visible {
   visibility: visible;
   opacity: 1;

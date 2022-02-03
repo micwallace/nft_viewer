@@ -1,4 +1,3 @@
-import logo from './logo.svg';
 import './App.css';
 import React from 'react';
 import Menu from './Menu'
@@ -6,10 +5,21 @@ import Connect from './Connect'
 import DefaultItems from "./DefaultItems";
 
 import * as THREE from 'three';
-
 import { TWEEN } from "three/examples/jsm/libs/tween.module.min";
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer';
+
+import MetaMaskOnboarding from '@metamask/onboarding'
+
+const currentUrl = new URL(window.location.href)
+const forwarderOrigin = currentUrl.hostname === 'localhost'
+    ? 'http://localhost:9010'
+    : undefined
+
+const isMetaMaskInstalled = () => {
+  const { ethereum } = window
+  return Boolean(ethereum && ethereum.isMetaMask)
+}
 
 class App extends React.Component {
 
@@ -35,8 +45,6 @@ class App extends React.Component {
 
     this.scene = new THREE.Scene();
 
-    this.buildCanvasElements(DefaultItems);
-
     this.renderer = new CSS3DRenderer();
     this.renderer.setSize( window.innerWidth, window.innerHeight );
     this.mount.appendChild( this.renderer.domElement );
@@ -46,9 +54,13 @@ class App extends React.Component {
     this.controls.maxDistance = 6000;
     this.controls.addEventListener( 'change', this.renderCanvas.bind(this) );
 
+    this.buildCanvasElements(DefaultItems);
+
     this.transform( this.targets.starfield, 2000, () =>{
       this.setState({
-        canConnect:true
+        canConnect:true,
+        isConnected:false,
+        account: ""
       });
     });
 
@@ -89,7 +101,8 @@ class App extends React.Component {
       const objectCSS = new CSS3DObject( element );
       objectCSS.position.x = Math.random() * 4000 - 2000;
       objectCSS.position.y = Math.random() * 4000 - 2000;
-      objectCSS.position.z = Math.random() * 4000 - 2000;
+      //objectCSS.position.z = Math.random() * 4000 - 2000;
+      objectCSS.position.z = 11000;
 
       if (!item.imageUrl){
         item.imageUrl = "assets/ph-images/cat-" + (i + 1) + ".png";
@@ -243,15 +256,80 @@ class App extends React.Component {
     this.transform(this.targets[name], 2000);
   }
 
-  connect(){
+  async connect(){
     this.transform(this.targets.sphere, 2000);
+
+    if (isMetaMaskInstalled()){
+      try {
+        const newAccounts = await window.ethereum.request({
+          method: 'eth_requestAccounts',
+        })
+        console.log(newAccounts);
+
+        this.populateNfts(newAccounts[0]);
+      } catch (error) {
+        console.error(error)
+      }
+    } else {
+      if (window.confirm("This app requires an Ethereum compatible browser wallet. Would you like to install Metamask?")){
+        let onboarding
+        try {
+          onboarding = new MetaMaskOnboarding({ forwarderOrigin });
+          onboarding.startOnboarding();
+        } catch (error) {
+          console.error(error)
+        }
+      }
+    }
+  }
+
+  populateNfts(account, tokens){
+
+    TWEEN.removeAll();
+
+    for ( let i = 0; i < this.objects.length; i ++ ) {
+
+      const object = this.objects[ i ];
+
+      new TWEEN.Tween( object.position )
+          .to( { x: 0, y: 0, z: 20000 }, Math.random() * 2000 + 2000 )
+          .easing( TWEEN.Easing.Exponential.InOut )
+          .start();
+    }
+
+    new TWEEN.Tween( this )
+        .to( {}, 2000 * 2 )
+        .onUpdate( this.renderCanvas.bind(this) )
+        .onComplete(()=>{
+          this.setState({
+            canConnect:false,
+            isConnected:true,
+            account:account
+          });
+          this.removeSceneObjects();
+          this.addNewObjectsToScene();
+        })
+        .start();
+  }
+
+  removeSceneObjects(){
+    for ( let i = 0; i < this.objects.length; i ++ ) {
+      this.scene.remove(this.objects[i]);
+    }
+    this.objects = [];
+    this.targets = { table: [], sphere: [], helix: [], grid: [], starfield: [] };
+  }
+
+  addNewObjectsToScene(){
+    this.buildCanvasElements(DefaultItems);
+    this.transform( this.targets.sphere, 2000);
   }
 
   render() {
     return (
         <div className="App">
           <div id="container" ref={ref => (this.mount = ref)}></div>
-          <Connect onClick={()=>{ this.connect(); }} visible={this.state.canConnect}/>
+          <Connect onClick={()=>{ this.connect(); }} visible={this.state.canConnect} isConnected={this.state.isConnected} account={this.state.account}/>
           <Menu items={Object.keys(this.targets)} onClick={(name)=>{this.changeFormation(name)}} />
         </div>
     );
