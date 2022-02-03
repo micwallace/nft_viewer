@@ -39,6 +39,7 @@ a {
   border: 1px solid rgba(127,255,255,0.25);
   text-align: center;
   cursor: default;
+  overflow: hidden;
 }
 
 .element:hover {
@@ -64,11 +65,18 @@ a {
   text-shadow: 0 0 10px rgba(0,255,255,0.95);
 }
 
-.element .image {
+.element .image-ctn {
   position: absolute;
   top: 25px;
-  left: 10px;
-  width: 100px;
+  padding: 5px 10px;
+  max-height: 100px;
+  overflow: hidden;
+}
+
+.element .image {
+  text-align: center;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .element .details {

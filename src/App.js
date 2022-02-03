@@ -67,8 +67,6 @@ class App extends React.Component {
     window.addEventListener( 'resize', this.onWindowResize );
 
     this.animate();
-
-    console.log("Component mount");
   }
 
   buildCanvasElements(table){
@@ -81,12 +79,13 @@ class App extends React.Component {
       const element = document.createElement( 'div' );
       element.className = 'element';
       element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
-      //element.setAttribute("onclick", "window.open('https://google.com.au/');");
 
-      const number = document.createElement( 'div' );
-      number.className = 'number';
-      number.textContent = i + 1;
-      element.appendChild( number );
+      if (item.id === undefined) {
+        const number = document.createElement('div');
+        number.className = 'number';
+        number.textContent = i + 1;
+        element.appendChild(number);
+      }
 
       const symbol = document.createElement( 'div' );
       symbol.className = 'symbol';
@@ -95,8 +94,45 @@ class App extends React.Component {
 
       const details = document.createElement( 'div' );
       details.className = 'details';
-      details.innerHTML = item.desc + '<br>' + item.num;
+      details.innerHTML = item.desc + (item.num ? '<br>' + item.num : "");
       element.appendChild( details );
+
+      // image
+      if (!item.imageUrl){
+        item.imageUrl = "assets/ph-images/cat-" + (i + 1) + ".png";
+      }
+
+      const imgCon = document.createElement('div');
+      imgCon.className = "image-ctn";
+
+      const img = document.createElement( 'img' );
+      img.className = "image";
+      img.setAttribute("src", item.imageUrl);
+      img.addEventListener("dragstart", (e) => { e.preventDefault(); });
+      imgCon.appendChild(img);
+
+      element.appendChild(imgCon);
+
+      // click handling
+      const delta = 20;
+      let startX;
+      let startY;
+
+      element.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        startX = e.pageX;
+        startY = e.pageY;
+        console.log(e);
+      });
+
+      element.addEventListener("click", (e)=>{
+        const diffX = Math.abs(e.pageX - startX);
+        const diffY = Math.abs(e.pageY - startY);
+
+        if (diffX < delta && diffY < delta) {
+          window.open((item.url ?? 'https://google.com.au/'));
+        }
+      });
 
       const objectCSS = new CSS3DObject( element );
       objectCSS.position.x = Math.random() * 4000 - 2000;
@@ -104,20 +140,8 @@ class App extends React.Component {
       //objectCSS.position.z = Math.random() * 4000 - 2000;
       objectCSS.position.z = 11000;
 
-      if (!item.imageUrl){
-        item.imageUrl = "assets/ph-images/cat-" + (i + 1) + ".png";
-      }
-
-      const img = document.createElement( 'img' );
-      img.className = "image";
-      img.setAttribute("src", item.imageUrl);
-      element.appendChild(img);
-
       this.scene.add( objectCSS );
-
       this.objects.push( objectCSS );
-
-      //
 
       const object = new THREE.Object3D();
       object.position.x = ( item.x * 140 ) - 1330;
@@ -230,6 +254,9 @@ class App extends React.Component {
 
   onWindowResize() {
 
+    if (!this.camera || !this.renderer)
+      return;
+
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
 
@@ -266,7 +293,12 @@ class App extends React.Component {
         })
         console.log(newAccounts);
 
-        this.populateNfts(newAccounts[0]);
+        let tokens = await this.getTokensForAccount(newAccounts[0]);
+
+        console.log(tokens);
+        if (tokens.length > 0){
+          this.populateNfts(newAccounts[0], tokens);
+        }
       } catch (error) {
         console.error(error)
       }
@@ -281,6 +313,62 @@ class App extends React.Component {
         }
       }
     }
+  }
+
+  async getTokensForAccount(account){
+
+    const options = {method: 'GET'};
+
+    try {
+      var res = await fetch('https://testnets-api.opensea.io/api/v1/assets?owner=' + account + '&order_direction=desc&offset=0&limit=50', options)
+          .then(response => response.json())
+          .catch(err => err);
+    } catch (err){
+      console.error(err);
+      return [];
+    }
+
+    console.log(res);
+
+    // TODO: Remove once account endpoint returns all NFTs
+    if (res.assets.length > 0 && res.assets.length < 10){
+        let contractAddr = res.assets[0].asset_contract.address;
+      try {
+        res = await fetch('https://testnets-api.opensea.io/api/v1/assets?asset_contract_address=' + contractAddr + '&order_direction=desc&offset=0&limit=50', options)
+            .then(response => response.json())
+            .catch(err => err);
+      } catch (err){
+        console.error(err);
+        return [];
+      }
+    }
+
+    if (!res.assets){
+      window.alert("Error retrieving tokens: " + res.detail);
+      return [];
+    }
+
+    return this.transformTokenSchema(res.assets);
+  }
+
+  transformTokenSchema(nfts){
+    let res = [];
+    for (let i=0; i<nfts.length; i++){
+      // Use coords of elements to maintain periodic table structure
+      let coords = DefaultItems[i] ?? {x:0, y:0};
+      let nft = nfts[i];
+
+      res.push({
+        id: "",
+        title: nft.id,
+        desc: nft.name,
+        imageUrl: nft.image_preview_url,
+        url: nft.permalink,
+        x: coords.x,
+        y: coords.y
+      });
+    }
+    return res;
   }
 
   populateNfts(account, tokens){
@@ -307,7 +395,7 @@ class App extends React.Component {
             account:account
           });
           this.removeSceneObjects();
-          this.addNewObjectsToScene();
+          this.addNewObjectsToScene(tokens);
         })
         .start();
   }
@@ -320,8 +408,8 @@ class App extends React.Component {
     this.targets = { table: [], sphere: [], helix: [], grid: [], starfield: [] };
   }
 
-  addNewObjectsToScene(){
-    this.buildCanvasElements(DefaultItems);
+  addNewObjectsToScene(tokens){
+    this.buildCanvasElements(tokens);
     this.transform( this.targets.sphere, 2000);
   }
 
