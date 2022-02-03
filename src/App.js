@@ -284,8 +284,12 @@ class App extends React.Component {
   }
 
   async connect(){
-    this.transform(this.targets.sphere, 2000);
+    this.transform(this.targets.sphere, 2000, ()=>{
+      this.connectToWallet();
+    });
+  }
 
+  async connectToWallet(){
     if (isMetaMaskInstalled()){
       try {
         const newAccounts = await window.ethereum.request({
@@ -332,7 +336,11 @@ class App extends React.Component {
 
     // TODO: Remove once account endpoint returns all NFTs
     if (res.assets.length > 0 && res.assets.length < 10){
-        let contractAddr = res.assets[0].asset_contract.address;
+
+      await new Promise(resolve => setTimeout(resolve, 500)); // Prevent rate limiting
+
+      let contractAddr = res.assets[0].asset_contract.address;
+
       try {
         res = await fetch('https://testnets-api.opensea.io/api/v1/assets?asset_contract_address=' + contractAddr + '&order_direction=desc&offset=0&limit=50', options)
             .then(response => response.json())
