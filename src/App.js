@@ -323,7 +323,7 @@ class App extends React.Component {
 
     const options = {method: 'GET'};
 
-    try {
+    /*try {
       var res = await fetch('https://testnets-api.opensea.io/api/v1/assets?owner=' + account + '&order_direction=desc&offset=0&limit=50', options)
           .then(response => response.json())
           .catch(err => err);
@@ -332,24 +332,24 @@ class App extends React.Component {
       return [];
     }
 
-    console.log(res);
+    console.log(res);*/
 
     // TODO: Remove once account endpoint returns all NFTs
-    if (res.assets.length > 0 && res.assets.length < 10){
+    //if (res.assets.length === 0){
 
-      await new Promise(resolve => setTimeout(resolve, 500)); // Prevent rate limiting
+      //await new Promise(resolve => setTimeout(resolve, 500)); // Prevent rate limiting
 
-      let contractAddr = res.assets[0].asset_contract.address;
+      //let contractAddr = res.assets[0].asset_contract.address;
 
       try {
-        res = await fetch('https://testnets-api.opensea.io/api/v1/assets?asset_contract_address=' + contractAddr + '&order_direction=desc&offset=0&limit=50', options)
+        var res = await fetch('https://testnets-api.opensea.io/api/v1/assets?collection=happy-frog-prince-v4&order_direction=desc&offset=0&limit=50', options)
             .then(response => response.json())
             .catch(err => err);
       } catch (err){
         console.error(err);
         return [];
       }
-    }
+    //}
 
     if (!res.assets){
       window.alert("Error retrieving tokens: " + res.detail);
